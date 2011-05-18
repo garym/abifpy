@@ -12,6 +12,23 @@ TAGS = {
             'TUBE1':'well',
        } 
 
+CODETYPES = {
+    1:'B', # byte - unsigned 8-bit integer
+    2:'s', # char - 8-bit ASCII character
+    3:'H', # word - Unsigned 16-bit integer
+    4:'h', # short - Signed 16-bit integer
+    5:'l', # long - Signed 32-bit integer
+    7:'f', # float - 32-bit floating point
+    8:'d', # double - 64-bit floating point
+    10:'hBB', # date - packed SInt16 (year), UInt8 (month 1-12), UInt8 (day 1-31)
+    11:'BBBB', # time - packed UInt8, UInt8, UInt8, UInt8
+    12:'llBB', # thumb (legacy)
+    13:'?', # boolean - 0 false, other true
+    #18:'s', # pstring - character count in first byte
+    18:'p', # pstring - character count in first byte
+    19:'s', # cstring - null terminated
+}
+
 __version__ = '0.3'
 
 class Trace(object):
@@ -80,21 +97,18 @@ class Trace(object):
         # so offset needs to be changed
         if dir_size <= 4:
             dir_offset = data_offset + 20
-
-        if elem_code == 2:
-            fmt = str(dir_size) + 's'
-            data = struct.unpack(fmt, 
-                    self._raw[dir_offset:dir_offset+dir_size])[0]
-        elif elem_code == 18:
-            fmt = str(dir_size-1) + 's'
-            data = struct.unpack(fmt,
-                    self._raw[dir_offset+1:dir_offset+dir_size])[0]
+        
+        if elem_code not in CODETYPES.keys():
+            return None
+        fmt_code = CODETYPES[elem_code]
+        fmt_size = struct.calcsize(fmt_code)
+        fmt = struct.Struct('>' + str(dir_size/fmt_size) + fmt_code)
+        
+        data = fmt.unpack(self._raw[dir_offset:dir_offset+dir_size])
+        if elem_code in (2, 18):
+            data = data[0]
         elif elem_code == 19:
-            fmt = str(dir_size-1) + 's'
-            data = struct.unpack(fmt,
-                    self._raw[dir_offset:dir_offset+dir_size-1])[0]
-        else:
-            data = None
+            data = data[0][:-1]
         return data
     
     def seq(self):
